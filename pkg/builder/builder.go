@@ -23,6 +23,9 @@ func New(ctx context.Context, provider model.Provider, key string, downloader Do
 		return NewSoundcloudBuilder()
 	case model.ProviderTwitch:
 		return NewTwitchBuilder(key)
+	// 新增：注册 Bilibili 数据源
+    	case model.ProviderBilibili:
+        	return NewBilibiliBuilder()  // 引用 bilibili.go 中的构造函数
 	default:
 		return nil, errors.Errorf("unsupported provider %q", provider)
 	}
