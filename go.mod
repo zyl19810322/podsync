@@ -23,6 +23,7 @@ require (
 	golang.org/x/sync v0.16.0
 	google.golang.org/api v0.243.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
+	github.com/yangtfu/bilibili/v3 v3.0.0  # Bilibili API 客户端
 )
 
 require (
