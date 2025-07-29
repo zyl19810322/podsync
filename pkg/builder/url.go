@@ -17,6 +17,20 @@ func ParseURL(link string) (model.Info, error) {
 
 	info := model.Info{}
 
+	// 优先解析 Bilibili 链接
+	if strings.HasSuffix(parsed.Host, "bilibili.com") {
+		kind, id, err := parseBilibiliURL(parsed)
+		if err != nil {
+			return model.Info{}, err
+		}
+
+		info.Provider = model.ProviderBilibili
+		info.LinkType = kind
+		info.ItemID = id
+
+		return info, nil
+	}
+
 	if strings.HasSuffix(parsed.Host, "youtube.com") {
 		kind, id, err := parseYoutubeURL(parsed)
 		if err != nil {
@@ -162,6 +176,40 @@ func parseYoutubeURL(parsed *url.URL) (model.Type, string, error) {
 	return "", "", errors.New("unsupported link format")
 }
 
+// 新增：Bilibili 链接解析函数
+func parseBilibiliURL(parsed *url.URL) (model.Type, string, error) {
+	// 支持解析：
+	// - 用户空间：https://space.bilibili.com/{mid}
+	// - 频道合集：https://space.bilibili.com/{mid}/channel/collectiondetail?sid={sid}
+	subdomain := strings.Split(parsed.Host, ".")[0]
+	parts := strings.Split(parsed.EscapedPath(), "/")
+
+	// 验证必须是 space.bilibili.com 子域名且路径不为空
+	if len(parts) <= 1 || subdomain != "space" {
+		return "", "", errors.New("invalid bilibili link path")
+	}
+
+	var kind model.Type
+	// 用户空间（路径格式：/mid）
+	if len(parts) == 2 {
+		kind = model.TypeUser
+		return kind, parts[1], nil
+	}
+	// 频道合集（路径格式：/mid/channel/...?sid=xxx）
+	else if parts[2] == "channel" {
+		kind = model.TypeChannel
+		// 解析 URL 参数中的 sid（合集 ID）
+		params, err := url.ParseQuery(parsed.RawQuery)
+		if err != nil || len(params["sid"]) == 0 {
+			return "", "", errors.New("invalid bilibili channel path (missing sid)")
+		}
+		// 用 "mid:sid" 格式拼接 ID，确保唯一性
+		return kind, parts[1] + ":" + params["sid"][0], nil
+	}
+
+	return "", "", errors.New("unsupported bilibili link format")
+}
+
 func parseVimeoURL(parsed *url.URL) (model.Type, string, error) {
 	parts := strings.Split(parsed.EscapedPath(), "/")
 	if len(parts) <= 1 {
@@ -204,9 +252,10 @@ func parseVimeoURL(parsed *url.URL) (model.Type, string, error) {
 }
 
 func parseSoundcloudURL(parsed *url.URL) (model.Type, string, error) {
+func parseSoundcloudURL(parsed *url.URL) (model.Type, string, error) {
 	parts := strings.Split(parsed.EscapedPath(), "/")
 	if len(parts) <= 3 {
-		return "", "", errors.New("invald soundcloud link path")
+		return "", "", errors.New("invalid soundcloud link path")
 	}
 
 	var kind model.Type
@@ -229,7 +278,7 @@ func parseTwitchURL(parsed *url.URL) (model.Type, string, error) {
 	path := parsed.EscapedPath()
 	parts := strings.Split(path, "/")
 	if len(parts) != 2 {
-		return "", "", errors.Errorf("invald twitch user path: %s", path)
+		return "", "", errors.Errorf("invalid twitch user path: %s", path)
 	}
 
 	kind := model.TypeUser
